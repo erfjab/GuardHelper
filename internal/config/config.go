@@ -12,6 +12,8 @@ type Config struct {
 	DatabaseURL    string `mapstructure:"DATABASE_URL"`
 	AdminID        int    `mapstructure:"ADMIN_ID"`
 	XrayConfigPath string `mapstructure:"XRAY_CONFIG_PATH"`
+	ApiSslCertFile string `mapstructure:"API_SSL_CERTFILE"`
+	ApiSslKeyFile  string `mapstructure:"API_SSL_KEYFILE"`
 }
 
 var Cfg *Config
@@ -59,6 +61,18 @@ func (c *Config) Validate() error {
 	}
 	if _, err := os.Stat(c.XrayConfigPath); os.IsNotExist(err) {
 		return errors.New("XRAY_CONFIG_PATH file does not exist")
+	}
+
+	if (c.ApiSslCertFile != "" && c.ApiSslKeyFile == "") || (c.ApiSslCertFile == "" && c.ApiSslKeyFile != "") {
+		return errors.New("both API_SSL_CERTFILE and API_SSL_KEYFILE must be set together")
+	}
+	if c.ApiSslCertFile != "" && c.ApiSslKeyFile != "" {
+		if _, err := os.Stat(c.ApiSslCertFile); os.IsNotExist(err) {
+			return errors.New("API_SSL_CERTFILE does not exist:" + c.ApiSslCertFile)
+		}
+		if _, err := os.Stat(c.ApiSslKeyFile); os.IsNotExist(err) {
+			return errors.New("API_SSL_KEYFILE does not exist:" + c.ApiSslKeyFile)
+		}
 	}
 	return nil
 }
