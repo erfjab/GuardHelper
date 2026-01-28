@@ -33,5 +33,10 @@ func main() {
 		})
 	})
 	log.Printf("Listening on http://0.0.0.0:99")
-	log.Fatal(fiberApp.Listen(":99"))
+	if config.Cfg.ApiSslCertFile != "" && config.Cfg.ApiSslKeyFile != "" {
+		log.Printf("SSL Enabled. Cert: %s, Key: %s", config.Cfg.ApiSslCertFile, config.Cfg.ApiSslKeyFile)
+		log.Fatal(fiberApp.ListenTLS(":99", config.Cfg.ApiSslCertFile, config.Cfg.ApiSslKeyFile))
+	} else {
+		log.Fatal(fiberApp.Listen(":99"))
+	}
 }
