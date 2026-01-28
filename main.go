@@ -9,7 +9,6 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/logger"
 )
 
-
 func main() {
 	log.Printf("Starting GuardHelper...")
 	_, err := config.LoadConfig()
@@ -19,7 +18,7 @@ func main() {
 	log.Printf("Config loaded successfully.")
 	fiberApp := fiber.New(fiber.Config{DisableStartupMessage: true})
 	fiberApp.Use(logger.New())
-	usersRoutes.RegisterServiceRoutes(fiberApp)
+	usersRoutes.RegisterUserRoutes(fiberApp)
 	fiberApp.Get("/", func(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusOK).JSON(fiber.Map{"message": "GuardHelper is running"})
 	})
