@@ -2,6 +2,7 @@ package main
 
 import (
 	"guardhelper/internal/config"
+	"guardhelper/internal/database"
 	usersRoutes "guardhelper/internal/routes/users"
 	"log"
 
@@ -16,6 +17,10 @@ func main() {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 	log.Printf("Config loaded successfully.")
+
+	database.ConnectDB()
+	log.Printf("Database connected successfully.")
+
 	fiberApp := fiber.New(fiber.Config{DisableStartupMessage: true})
 	fiberApp.Use(logger.New())
 	usersRoutes.RegisterUserRoutes(fiberApp)
