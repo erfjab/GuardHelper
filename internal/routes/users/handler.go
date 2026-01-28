@@ -1,11 +1,12 @@
 package users
 
 import (
-	"database/sql"
 	"encoding/json"
+	"log"
 
 	"guardhelper/internal/config"
 	"guardhelper/internal/database"
+	"guardhelper/internal/xray"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -92,38 +93,68 @@ func loadProxiesForUsers() map[int]map[string]map[string]interface{} {
 }
 
 func loadInboundsForUsers() map[int]map[string][]string {
-	query := `
-		SELECT 
-			p.user_id,
-			LOWER(p.type) as proxy_type,
-			i.tag as inbound_tag
-		FROM proxies p
-		CROSS JOIN inbounds i
-		LEFT JOIN exclude_inbounds_association e 
-			ON e.proxy_id = p.id AND e.inbound_tag = i.tag
-		WHERE e.proxy_id IS NULL
-		ORDER BY p.user_id, p.type
-	`
-
-	type InboundRow struct {
-		UserID      int
-		ProxyType   string
-		InboundTag  sql.NullString
+	activeInbounds, err := xray.GetInboundsByProtocol()
+	if err != nil {
+		log.Printf("Failed to load inbounds from Xray config: %v", err)
+		return make(map[int]map[string][]string)
 	}
 
-	var rows []InboundRow
-	database.DB.Raw(query).Scan(&rows)
+	type Proxy struct {
+		ID     int
+		UserID int
+		Type   string
+	}
+	var proxies []Proxy
+	if err := database.DB.Table("proxies").
+		Select("id, user_id, LOWER(type) as type").
+		Scan(&proxies).Error; err != nil {
+		log.Printf("Failed to fetch proxies: %v", err)
+		return make(map[int]map[string][]string)
+	}
+
+	type Exclusion struct {
+		ProxyID    int
+		InboundTag string
+	}
+	var exclusions []Exclusion
+	if err := database.DB.Table("exclude_inbounds_association").
+		Select("proxy_id, inbound_tag").
+		Scan(&exclusions).Error; err != nil {
+		log.Printf("Failed to fetch exclusions: %v", err)
+		return make(map[int]map[string][]string)
+	}
+
+	exclusionMap := make(map[int]map[string]bool)
+	for _, ex := range exclusions {
+		if _, ok := exclusionMap[ex.ProxyID]; !ok {
+			exclusionMap[ex.ProxyID] = make(map[string]bool)
+		}
+		exclusionMap[ex.ProxyID][ex.InboundTag] = true
+	}
 
 	result := make(map[int]map[string][]string)
-	for _, row := range rows {
-		if result[row.UserID] == nil {
-			result[row.UserID] = make(map[string][]string)
+
+	for _, proxy := range proxies {
+		potentialTags, ok := activeInbounds[proxy.Type]
+		if !ok {
+			continue
 		}
-		if result[row.UserID][row.ProxyType] == nil {
-			result[row.UserID][row.ProxyType] = []string{}
+
+		var allowedTags []string
+		for _, tag := range potentialTags {
+			if excludedProxy, isExcluded := exclusionMap[proxy.ID]; isExcluded {
+				if excludedProxy[tag] {
+					continue
+				}
+			}
+			allowedTags = append(allowedTags, tag)
 		}
-		if row.InboundTag.Valid {
-			result[row.UserID][row.ProxyType] = append(result[row.UserID][row.ProxyType], row.InboundTag.String)
+
+		if len(allowedTags) > 0 {
+			if result[proxy.UserID] == nil {
+				result[proxy.UserID] = make(map[string][]string)
+			}
+			result[proxy.UserID][proxy.Type] = append(result[proxy.UserID][proxy.Type], allowedTags...)
 		}
 	}
 
