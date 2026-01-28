@@ -11,7 +11,7 @@ import (
 )
 
 func main() {
-	log.Printf("Starting GuardHelper...")
+	log.Printf("Starting GuardHelper [v0.1.0]")
 	_, err := config.LoadConfig()
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
