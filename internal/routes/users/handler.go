@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 
+	"guardhelper/internal/config"
 	"guardhelper/internal/database"
 
 	"github.com/gofiber/fiber/v2"
@@ -21,6 +22,7 @@ func GetAllUsers(c *fiber.Ctx) error {
 			u.id as user_id
 		FROM users u
 		LEFT JOIN user_usage_logs uul ON u.id = uul.user_id
+		WHERE u.admin_id = ?
 		GROUP BY u.id, u.username, u.status, u.created_at, u.used_traffic
 	`
 
@@ -33,7 +35,7 @@ func GetAllUsers(c *fiber.Ctx) error {
 	}
 
 	var userRows []UserRow
-	if err := database.DB.Raw(query).Scan(&userRows).Error; err != nil {
+	if err := database.DB.Raw(query, config.Cfg.AdminID).Scan(&userRows).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to fetch users",
 		})

@@ -9,6 +9,7 @@ import (
 type Config struct {
 	ApiKey      string `mapstructure:"API_KEY"`
 	DatabaseURL string `mapstructure:"DATABASE_URL"`
+	AdminID     int    `mapstructure:"ADMIN_ID"`
 }
 
 var Cfg *Config
@@ -47,6 +48,9 @@ func (c *Config) Validate() error {
 	}
 	if c.DatabaseURL == "" {
 		return errors.New("DATABASE_URL is required")
+	}
+	if c.AdminID == 0 {
+		return errors.New("ADMIN_ID is required")
 	}
 	return nil
 }
