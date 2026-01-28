@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"strings"
 )
 
 type XrayConfig struct {
@@ -43,11 +44,22 @@ func GetInboundsByProtocol() (map[string][]string, error) {
 	}
 
 	inboundsByProtocol := make(map[string][]string)
+	seen := make(map[string]map[string]bool)
 	for _, inbound := range xrayConfig.Inbounds {
-		if inbound.Tag == "" || inbound.Protocol == "" {
+		protocol := strings.ToLower(strings.TrimSpace(inbound.Protocol))
+		tag := strings.TrimSpace(inbound.Tag)
+		if tag == "" || protocol == "" {
 			continue
 		}
-		inboundsByProtocol[inbound.Protocol] = append(inboundsByProtocol[inbound.Protocol], inbound.Tag)
+
+		if seen[protocol] == nil {
+			seen[protocol] = make(map[string]bool)
+		}
+		if seen[protocol][tag] {
+			continue
+		}
+		seen[protocol][tag] = true
+		inboundsByProtocol[protocol] = append(inboundsByProtocol[protocol], tag)
 	}
 
 	return inboundsByProtocol, nil

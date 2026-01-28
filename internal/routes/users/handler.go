@@ -3,6 +3,7 @@ package users
 import (
 	"encoding/json"
 	"log"
+	"strings"
 
 	"guardhelper/internal/config"
 	"guardhelper/internal/database"
@@ -156,17 +157,27 @@ func loadInboundsForUsers(adminID int) map[int]map[string][]string {
 	uniqueTags := make(map[int]map[string]map[string]bool)
 
 	for _, proxy := range proxies {
-		potentialTags, ok := activeInbounds[proxy.Type]
-		if !ok {
+		protocol := strings.ToLower(strings.TrimSpace(proxy.Type))
+		if protocol == "" {
 			continue
 		}
 
+		// Always create the protocol key for the user, even if there are no active inbounds
+		// for this protocol in the Xray config.
 		if result[proxy.UserID] == nil {
 			result[proxy.UserID] = make(map[string][]string)
 			uniqueTags[proxy.UserID] = make(map[string]map[string]bool)
 		}
-		if uniqueTags[proxy.UserID][proxy.Type] == nil {
-			uniqueTags[proxy.UserID][proxy.Type] = make(map[string]bool)
+		if _, exists := result[proxy.UserID][protocol]; !exists {
+			result[proxy.UserID][protocol] = []string{}
+		}
+		if uniqueTags[proxy.UserID][protocol] == nil {
+			uniqueTags[proxy.UserID][protocol] = make(map[string]bool)
+		}
+
+		potentialTags, ok := activeInbounds[protocol]
+		if !ok {
+			continue
 		}
 
 		for _, tag := range potentialTags {
@@ -176,9 +187,9 @@ func loadInboundsForUsers(adminID int) map[int]map[string][]string {
 				}
 			}
 			
-			if !uniqueTags[proxy.UserID][proxy.Type][tag] {
-				uniqueTags[proxy.UserID][proxy.Type][tag] = true
-				result[proxy.UserID][proxy.Type] = append(result[proxy.UserID][proxy.Type], tag)
+			if !uniqueTags[proxy.UserID][protocol][tag] {
+				uniqueTags[proxy.UserID][protocol][tag] = true
+				result[proxy.UserID][protocol] = append(result[proxy.UserID][protocol], tag)
 			}
 		}
 	}
