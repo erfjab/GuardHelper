@@ -13,6 +13,7 @@ import (
 
 func GetAllUsers(c *fiber.Ctx) error {
 	var responses []UsersResponse
+	adminID := config.Cfg.AdminID
 
 	query := `
 		SELECT 
@@ -36,14 +37,14 @@ func GetAllUsers(c *fiber.Ctx) error {
 	}
 
 	var userRows []UserRow
-	if err := database.DB.Raw(query, config.Cfg.AdminID).Scan(&userRows).Error; err != nil {
+	if err := database.DB.Raw(query, adminID).Scan(&userRows).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to fetch users",
 		})
 	}
 
-	proxiesMap := loadProxiesForUsers()
-	inboundsMap := loadInboundsForUsers()
+	proxiesMap := loadProxiesForUsers(adminID)
+	inboundsMap := loadInboundsForUsers(adminID)
 
 	for _, row := range userRows {
 		responses = append(responses, UsersResponse{
@@ -62,17 +63,24 @@ func GetAllUsers(c *fiber.Ctx) error {
 	})
 }
 
-func loadProxiesForUsers() map[int]map[string]map[string]interface{} {
+func loadProxiesForUsers(adminID int) map[int]map[string]map[string]interface{} {
 	type ProxyRow struct {
-		UserID   int
-		Type     string
-		Settings string
+		UserID   int    `gorm:"column:user_id"`
+		Type     string `gorm:"column:type"`
+		Settings string `gorm:"column:settings"`
 	}
 
 	var rows []ProxyRow
-	database.DB.Table("proxies").
-		Select("user_id, LOWER(type) as type, settings").
-		Scan(&rows)
+	err := database.DB.Table("proxies").
+		Select("proxies.user_id, LOWER(proxies.type) as type, proxies.settings").
+		Joins("JOIN users ON proxies.user_id = users.id").
+		Where("users.admin_id = ?", adminID).
+		Scan(&rows).Error
+
+	if err != nil {
+		log.Printf("Error loading proxies: %v", err)
+		return make(map[int]map[string]map[string]interface{})
+	}
 
 	result := make(map[int]map[string]map[string]interface{})
 	for _, row := range rows {
@@ -82,7 +90,9 @@ func loadProxiesForUsers() map[int]map[string]map[string]interface{} {
 
 		var settings map[string]interface{}
 		if row.Settings != "" {
-			json.Unmarshal([]byte(row.Settings), &settings)
+			if err := json.Unmarshal([]byte(row.Settings), &settings); err != nil {
+				settings = make(map[string]interface{})
+			}
 		} else {
 			settings = make(map[string]interface{})
 		}
@@ -92,7 +102,7 @@ func loadProxiesForUsers() map[int]map[string]map[string]interface{} {
 	return result
 }
 
-func loadInboundsForUsers() map[int]map[string][]string {
+func loadInboundsForUsers(adminID int) map[int]map[string][]string {
 	activeInbounds, err := xray.GetInboundsByProtocol()
 	if err != nil {
 		log.Printf("Failed to load inbounds from Xray config: %v", err)
@@ -100,26 +110,36 @@ func loadInboundsForUsers() map[int]map[string][]string {
 	}
 
 	type Proxy struct {
-		ID     int
-		UserID int
-		Type   string
+		ID     int    `gorm:"column:id"`
+		UserID int    `gorm:"column:user_id"`
+		Type   string `gorm:"column:type"`
 	}
 	var proxies []Proxy
-	if err := database.DB.Table("proxies").
-		Select("id, user_id, LOWER(type) as type").
-		Scan(&proxies).Error; err != nil {
-		log.Printf("Failed to fetch proxies: %v", err)
+	err = database.DB.Table("proxies").
+		Select("proxies.id, proxies.user_id, LOWER(proxies.type) as type").
+		Joins("JOIN users ON proxies.user_id = users.id").
+		Where("users.admin_id = ?", adminID).
+		Scan(&proxies).Error
+	
+	if err != nil {
+		log.Printf("Failed to fetch proxies for inbounds: %v", err)
 		return make(map[int]map[string][]string)
 	}
 
 	type Exclusion struct {
-		ProxyID    int
-		InboundTag string
+		ProxyID    int    `gorm:"column:proxy_id"`
+		InboundTag string `gorm:"column:inbound_tag"`
 	}
 	var exclusions []Exclusion
-	if err := database.DB.Table("exclude_inbounds_association").
-		Select("proxy_id, inbound_tag").
-		Scan(&exclusions).Error; err != nil {
+	
+	err = database.DB.Table("exclude_inbounds_association").
+		Select("exclude_inbounds_association.proxy_id, exclude_inbounds_association.inbound_tag").
+		Joins("JOIN proxies ON exclude_inbounds_association.proxy_id = proxies.id").
+		Joins("JOIN users ON proxies.user_id = users.id").
+		Where("users.admin_id = ?", adminID).
+		Scan(&exclusions).Error
+
+	if err != nil {
 		log.Printf("Failed to fetch exclusions: %v", err)
 		return make(map[int]map[string][]string)
 	}
@@ -133,6 +153,7 @@ func loadInboundsForUsers() map[int]map[string][]string {
 	}
 
 	result := make(map[int]map[string][]string)
+	uniqueTags := make(map[int]map[string]map[string]bool)
 
 	for _, proxy := range proxies {
 		potentialTags, ok := activeInbounds[proxy.Type]
@@ -140,21 +161,25 @@ func loadInboundsForUsers() map[int]map[string][]string {
 			continue
 		}
 
-		var allowedTags []string
+		if result[proxy.UserID] == nil {
+			result[proxy.UserID] = make(map[string][]string)
+			uniqueTags[proxy.UserID] = make(map[string]map[string]bool)
+		}
+		if uniqueTags[proxy.UserID][proxy.Type] == nil {
+			uniqueTags[proxy.UserID][proxy.Type] = make(map[string]bool)
+		}
+
 		for _, tag := range potentialTags {
 			if excludedProxy, isExcluded := exclusionMap[proxy.ID]; isExcluded {
 				if excludedProxy[tag] {
 					continue
 				}
 			}
-			allowedTags = append(allowedTags, tag)
-		}
-
-		if len(allowedTags) > 0 {
-			if result[proxy.UserID] == nil {
-				result[proxy.UserID] = make(map[string][]string)
+			
+			if !uniqueTags[proxy.UserID][proxy.Type][tag] {
+				uniqueTags[proxy.UserID][proxy.Type][tag] = true
+				result[proxy.UserID][proxy.Type] = append(result[proxy.UserID][proxy.Type], tag)
 			}
-			result[proxy.UserID][proxy.Type] = append(result[proxy.UserID][proxy.Type], allowedTags...)
 		}
 	}
 
