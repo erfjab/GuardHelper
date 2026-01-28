@@ -2,6 +2,7 @@ package users
 
 import (
 	"guardhelper/internal/middlewares"
+
 	"github.com/gofiber/fiber/v2"
 )
 

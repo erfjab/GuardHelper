@@ -2,11 +2,13 @@ package config
 
 import (
 	"errors"
+
 	"github.com/spf13/viper"
 )
 
 type Config struct {
-	ApiKey string `mapstructure:"API_KEY"`
+	ApiKey      string `mapstructure:"API_KEY"`
+	DatabaseURL string `mapstructure:"DATABASE_URL"`
 }
 
 var Cfg *Config
@@ -42,6 +44,9 @@ func LoadConfig() (*Config, error) {
 func (c *Config) Validate() error {
 	if c.ApiKey == "" {
 		return errors.New("API_KEY is required")
+	}
+	if c.DatabaseURL == "" {
+		return errors.New("DATABASE_URL is required")
 	}
 	return nil
 }
