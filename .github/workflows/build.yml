@@ -1,0 +1,38 @@
+name: Build and Release
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Build for Linux
+        run: GOOS=linux GOARCH=amd64 go build -o guardhelper .
+
+      - name: Get short SHA
+        id: sha
+        run: echo "short_sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        id: create_release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: build-${{ steps.sha.outputs.short_sha }}
+          name: Build ${{ steps.sha.outputs.short_sha }}
+          draft: false
+          prerelease: false
+          files: |
+            guardhelper
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
