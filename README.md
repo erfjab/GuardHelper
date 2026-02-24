@@ -4,17 +4,6 @@ A simple API server built with Go and Fiber framework.
 
 ## Install
 
-First, detect your server architecture:
-
-```bash
-uname -m
-```
-
-| Output      | Architecture | Binary to download              |
-|-------------|-------------|----------------------------------|
-| `x86_64`    | amd64        | `guardhelper-linux-amd64`       |
-| `aarch64`   | arm64        | `guardhelper-linux-arm64`       |
-
 Download and install the correct build for your server:
 
 ```bash
