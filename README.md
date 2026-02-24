@@ -9,32 +9,13 @@ Download and install the latest build:
 ```bash
 curl -L https://github.com/erfjab/GuardHelper/releases/latest/download/guardhelper -o /usr/local/bin/guardhelper
 chmod +x /usr/local/bin/guardhelper
-```
-
-Create configuration file:
-
-```bash
 sudo mkdir -p /etc/guardhelper
+curl -L https://raw.githubusercontent.com/Gozargah/Marzban/refs/heads/master/.env.example -o /etc/guardhelper/.env
 sudo nano /etc/guardhelper/.env
 ```
 
-Add your configuration:
-
-```env
-API_KEY=your_api_key_here
-DATABASE_URL=your_database_connection_string
-ADMIN_ID=your_admin_id
-```
-
-Create systemd service:
-
 ```bash
-sudo nano /etc/systemd/system/guardhelper.service
-```
-
-Add this content:
-
-```ini
+sudo bash -c 'cat > /etc/systemd/system/guardhelper.service << "EOF"
 [Unit]
 Description=GuardHelper API Server
 After=network.target
@@ -49,14 +30,10 @@ RestartSec=5
 
 [Install]
 WantedBy=multi-user.target
-```
-
-Enable and start the service:
-
-```bash
-sudo systemctl daemon-reload
-sudo systemctl enable guardhelper
-sudo systemctl start guardhelper
+EOF
+systemctl daemon-reload
+systemctl enable guardhelper
+systemctl start guardhelper
 ```
 
 ## Logs
