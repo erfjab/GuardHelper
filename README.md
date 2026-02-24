@@ -4,37 +4,35 @@ A simple API server built with Go and Fiber framework.
 
 ## Install
 
-Download and install the latest build:
+First, detect your server architecture:
 
 ```bash
-curl -L https://github.com/erfjab/GuardHelper/releases/latest/download/guardhelper -o /usr/local/bin/guardhelper
-chmod +x /usr/local/bin/guardhelper
+uname -m
 ```
 
-Create configuration file:
+| Output      | Architecture | Binary to download              |
+|-------------|-------------|----------------------------------|
+| `x86_64`    | amd64        | `guardhelper-linux-amd64`       |
+| `aarch64`   | arm64        | `guardhelper-linux-arm64`       |
+
+Download and install the correct build for your server:
 
 ```bash
+ARCH=$(uname -m)
+if [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then
+  BINARY="guardhelper-linux-arm64"
+else
+  BINARY="guardhelper-linux-amd64"
+fi
+curl -L "https://github.com/erfjab/GuardHelper/releases/latest/download/${BINARY}" -o /usr/local/bin/guardhelper
+chmod +x /usr/local/bin/guardhelper
 sudo mkdir -p /etc/guardhelper
+curl -L https://raw.githubusercontent.com/erfjab/guardhelper/refs/heads/master/.env.example -o /etc/guardhelper/.env
 sudo nano /etc/guardhelper/.env
 ```
 
-Add your configuration:
-
-```env
-API_KEY=your_api_key_here
-DATABASE_URL=your_database_connection_string
-ADMIN_ID=your_admin_id
-```
-
-Create systemd service:
-
 ```bash
-sudo nano /etc/systemd/system/guardhelper.service
-```
-
-Add this content:
-
-```ini
+sudo bash -c 'cat > /etc/systemd/system/guardhelper.service << "EOF"
 [Unit]
 Description=GuardHelper API Server
 After=network.target
@@ -49,14 +47,10 @@ RestartSec=5
 
 [Install]
 WantedBy=multi-user.target
-```
-
-Enable and start the service:
-
-```bash
-sudo systemctl daemon-reload
-sudo systemctl enable guardhelper
-sudo systemctl start guardhelper
+EOF
+systemctl daemon-reload
+systemctl enable guardhelper
+systemctl start guardhelper
 ```
 
 ## Logs
@@ -79,7 +73,13 @@ Download the new version and restart:
 
 ```bash
 sudo systemctl stop guardhelper
-curl -L https://github.com/erfjab/GuardHelper/releases/latest/download/guardhelper -o /usr/local/bin/guardhelper
+ARCH=$(uname -m)
+if [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then
+  BINARY="guardhelper-linux-arm64"
+else
+  BINARY="guardhelper-linux-amd64"
+fi
+curl -L "https://github.com/erfjab/GuardHelper/releases/latest/download/${BINARY}" -o /usr/local/bin/guardhelper
 chmod +x /usr/local/bin/guardhelper
 sudo systemctl start guardhelper
 ```
