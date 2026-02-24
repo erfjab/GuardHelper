@@ -14,6 +14,8 @@ type Config struct {
 	XrayConfigPath string `mapstructure:"XRAY_CONFIG_PATH"`
 	ApiSslCertFile string `mapstructure:"API_SSL_CERTFILE"`
 	ApiSslKeyFile  string `mapstructure:"API_SSL_KEYFILE"`
+	ApiPort        int    `mapstructure:"API_PORT"`
+	ApiHost        string `mapstructure:"API_HOST"`
 }
 
 var Cfg *Config
@@ -73,6 +75,12 @@ func (c *Config) Validate() error {
 		if _, err := os.Stat(c.ApiSslKeyFile); os.IsNotExist(err) {
 			return errors.New("API_SSL_KEYFILE does not exist:" + c.ApiSslKeyFile)
 		}
+	}
+	if c.ApiPort == 0 {
+		return errors.New("API_PORT is required")
+	}
+	if c.ApiPort < 1 || c.ApiPort > 65535 {
+		return errors.New("API_PORT must be between 1 and 65535")
 	}
 	return nil
 }

@@ -8,11 +8,12 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
+	"github.com/spf13/cast"
 )
 
 func main() {
-	log.Printf("Starting GuardHelper [v0.1.0]")
-	_, err := config.LoadConfig()
+	log.Printf("Starting GuardHelper [v0.1.1]")
+	cfg, err := config.LoadConfig()
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 	}
@@ -32,11 +33,12 @@ func main() {
 			"message": "not found",
 		})
 	})
-	log.Printf("Listening on http://0.0.0.0:99")
-	if config.Cfg.ApiSslCertFile != "" && config.Cfg.ApiSslKeyFile != "" {
-		log.Printf("SSL Enabled. Cert: %s, Key: %s", config.Cfg.ApiSslCertFile, config.Cfg.ApiSslKeyFile)
-		log.Fatal(fiberApp.ListenTLS(":99", config.Cfg.ApiSslCertFile, config.Cfg.ApiSslKeyFile))
+	address := cfg.ApiHost + ":" + cast.ToString(cfg.ApiPort)
+	if cfg.ApiSslCertFile != "" && cfg.ApiSslKeyFile != "" {
+		log.Printf("Listening on https://%s:%d", cfg.ApiHost, cfg.ApiPort)
+		log.Fatal(fiberApp.ListenTLS(address, cfg.ApiSslCertFile, cfg.ApiSslKeyFile))
 	} else {
-		log.Fatal(fiberApp.Listen(":99"))
+		log.Printf("Listening on http://%s:%d", cfg.ApiHost, cfg.ApiPort)
+		log.Fatal(fiberApp.Listen(address))
 	}
 }
