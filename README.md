@@ -4,13 +4,30 @@ A simple API server built with Go and Fiber framework.
 
 ## Install
 
-Download and install the latest build:
+First, detect your server architecture:
 
 ```bash
-curl -L https://github.com/erfjab/GuardHelper/releases/latest/download/guardhelper -o /usr/local/bin/guardhelper
+uname -m
+```
+
+| Output      | Architecture | Binary to download              |
+|-------------|-------------|----------------------------------|
+| `x86_64`    | amd64        | `guardhelper-linux-amd64`       |
+| `aarch64`   | arm64        | `guardhelper-linux-arm64`       |
+
+Download and install the correct build for your server:
+
+```bash
+ARCH=$(uname -m)
+if [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then
+  BINARY="guardhelper-linux-arm64"
+else
+  BINARY="guardhelper-linux-amd64"
+fi
+curl -L "https://github.com/erfjab/GuardHelper/releases/latest/download/${BINARY}" -o /usr/local/bin/guardhelper
 chmod +x /usr/local/bin/guardhelper
 sudo mkdir -p /etc/guardhelper
-curl -L https://raw.githubusercontent.com/Gozargah/Marzban/refs/heads/master/.env.example -o /etc/guardhelper/.env
+curl -L https://raw.githubusercontent.com/erfjab/guardhelper/refs/heads/master/.env.example -o /etc/guardhelper/.env
 sudo nano /etc/guardhelper/.env
 ```
 
@@ -56,7 +73,13 @@ Download the new version and restart:
 
 ```bash
 sudo systemctl stop guardhelper
-curl -L https://github.com/erfjab/GuardHelper/releases/latest/download/guardhelper -o /usr/local/bin/guardhelper
+ARCH=$(uname -m)
+if [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then
+  BINARY="guardhelper-linux-arm64"
+else
+  BINARY="guardhelper-linux-amd64"
+fi
+curl -L "https://github.com/erfjab/GuardHelper/releases/latest/download/${BINARY}" -o /usr/local/bin/guardhelper
 chmod +x /usr/local/bin/guardhelper
 sudo systemctl start guardhelper
 ```
